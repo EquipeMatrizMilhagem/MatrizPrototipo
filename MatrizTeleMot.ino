@@ -3,6 +3,8 @@
 #include <SPI.h>
 #include "DHT.h"
 
+#define acs712 A0
+
 #define CS_pin 10 //Definição do pino de entrada do MicroSD Card Adapter
 
 #define pinmotor 5 //Definição do pino do motor
@@ -31,6 +33,7 @@ File sd_file; //Criação de uma variável sd_file
 void setup() {
   Serial.begin(9600);  //Inicizalização do módulo serial
   
+  pinMode(acs712, INPUT);
 
   pinMode(pinmotor, OUTPUT); //Identificação do pino digital do motor como OUTPUT
 
@@ -64,7 +67,7 @@ void loop() {
     velocidade+= fadeamount;
     analogWrite(pinmotor, velocidade);
     senddata(Tempo);
-    Tempo = Tempo+0.25;
+    Tempo = Tempo + 0.25;
     
  }
   for (velocidade = maxvelocidade; velocidade >= minvelocidade;
@@ -98,11 +101,21 @@ void senddata(float Tempo){ //Função para leitura do sensor ACS712 e para Arma
   float MediaCorrente = 0.0; // Variável para armazenar a média das correntes
   float Medidas = 0.0; //Variável para Realizar a divisão das médias
   int segundos = Tempo; 
+  // For com 250 milisegundos de duração, com 25 medidas feitas, com as medias dessas medidas
   for(float seconds =0.0; seconds<0.250; seconds = seconds+0.01){
-
-    voltagem = (analogRead(A0) - (510))*(5.0/(1023.0*0.185)); //Leitura da porta analógica A0 e correções
     
+    float adc = analogRead(A0);
+
+    voltagem = (5.000/1023.000)*(adc); // Transformação pra voltagem
+    voltagem = voltagem -2.5; //Exclui os valores negativos
+
+    //voltagem = (analogRead(A0) - (510))*(5.0/(1023.0*0.185)); //Leitura da porta analógica A0 e correções
+
+    corrente = (voltagem/0.185); //Cálculo da corrente
+
     MediaCorrente = corrente +MediaCorrente; //Somatório de todas iterações feitas dentro deste for
+
+    Medidas = voltagem + Medidas;
 
     delay(10);
   
@@ -110,18 +123,22 @@ void senddata(float Tempo){ //Função para leitura do sensor ACS712 e para Arma
   tempoatual=0.250 + Tempo; //Atualização do tempo atual
 
   MediaCorrente = MediaCorrente/25; //Dividindo os valores obtidos da média
+  Medidas =  Medidas/25;
 
   Serial.print("Corrente: "); //Printando a corrente no Serial
   Serial.println(MediaCorrente);
+
+  //Serial.print("Voltagem: ");
+  //Serial.print(Medidas);
 
   sd_file.print(tempoatual); //Printando o tempo atual no SD
   sd_file.print(",");
   sd_file.print(MediaCorrente); //Printando a MédiaCorrente no SD
   sd_file.println();
 
-  Serial.print("Tempo (s): "); //Printando o tempo no Serial
-  Serial.print(tempoatual);
-  Serial.print(",  ");
+  //Serial.print("Tempo (s): "); //Printando o tempo no Serial
+  //Serial.print(tempoatual);
+  //Serial.print(",  ");
     // Serial.print(corrente);
 
   Serial.println();
